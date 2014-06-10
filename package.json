@@ -12,7 +12,9 @@
     "url": "http://github.com/markjen/square-connect-node-sdk/raw/master/LICENSE"
   },
   "main": "square-connect.js",
-  "dependencies": {},
+  "dependencies": {
+    "request": "~2.36.0"
+  },
   "engines": {
     "node": "*"
   }

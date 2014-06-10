@@ -16,6 +16,7 @@ limitations under the License.
 
 var https = require('https'),
     url = require('url'),
+    request = require('request'),
     util = require('util'),
     SQUARE_CONNECT_HOST = 'connect.squareup.com',
     SQUARE_CONNECT_VERSION = 'v1';
@@ -67,45 +68,40 @@ Square.prototype.api = function() {
   }
 
   headers = {Authorization: 'Bearer ' + this.accessToken};
-  if (method === 'POST' || method === 'PUT') {
-    headers['Content-Type'] = 'application/json';
+
+  requestOptions = {
+    url: url.parse('https://' + SQUARE_CONNECT_HOST + path),
+    method: method,
+    headers: headers,
+    json: true
+  };
+  if (params) {
+    requestOptions.json = params;
   }
+  req = request(requestOptions,
+    function(error, res, responseBody) {
+      if (error) {
+        handleError(error, callback, logger);
+        return;
+      }
 
-  req = https.request(
-      {
-        hostname: SQUARE_CONNECT_HOST,
-        port: 443,
-        path: path,
-        method: method,
-        headers: headers
-      },
-      function(res) {
-        res.on('error', function(e) {
-          handleError(e, cb, logger);
+      if (res.statusCode >= 400 && res.statusCode <= 599) {
+        responseBody = responseBody || {};
+        var err = new Error(responseBody.message || 'unknown message');
+        err.type = responseBody.type || 'unknown type';
+        callback (err, {
+          statusCode: res.statusCode,
+          headers: res.headers,
+          data: responseBody
         });
+        return;
+      }
 
-        var chunks = [];
-        res.on('data', function(d) {
-          chunks.push(d);
-        });
-
-        res.on('end', function() {
-          cb(undefined, {
-            statusCode: res.statusCode,
-            headers: res.headers,
-            data: JSON.parse(chunks.join())
-          });
-        });
+      cb(undefined, {
+        statusCode: res.statusCode,
+        headers: res.headers,
+        data: responseBody
       });
-
-  if (params && method !== 'GET') {
-    req.write(JSON.stringify(params));
-  }
-
-  req.end();
-
-  req.on('error', function(e) {
-    handleError(e, cb, logger);
   });
 
   return true;
