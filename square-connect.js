@@ -21,6 +21,11 @@ var https = require('https'),
     SQUARE_CONNECT_HOST = 'connect.squareup.com',
     SQUARE_CONNECT_VERSION = 'v1';
 
+/**
+ * @param {Object|string} options Either just the access token or an options object.
+ * @param {string} options.accessToken
+ * @param {Object} logger An object that has a "error" method on it (i.e. console) for logging purposes.
+ */
 function Square(options) {
   if (typeof options === "string") {
     options = { accessToken: options };
@@ -30,31 +35,24 @@ function Square(options) {
   this.logger = options.logger || console;
 }
 
-Square.prototype.api = function() {
+/**
+ * @param {string} path
+ * @param {string} method An HTTP Method name, like GET, PUT, POST or DELETE.
+ * @param {Object} params An OPTIONAL PARAMETER specifying the POST body data.
+ * @param {Function(Error, Object)} callback A callback that accepts an error and/or response body object.
+ */
+Square.prototype.api = function(path, method, params, callback) {
   var logger = this.logger,
-      args = Array.prototype.slice.call(arguments),
-      path = args.shift(),
-      next = args.shift(),
-      method, params, cb, headers, req;
+      requestOptions;
 
-  while (next) {
-    var type = typeof next;
-    if (type === 'string' && !method) {
-      method = next.toLowerCase();
-    } else if (type === 'function' && !cb) {
-      cb = next;
-    } else if (type === 'object' && !params) {
-      params = next;
-    } else {
-      handleError(new Error('Invalid argument passed to api(): ' + util.inspect(next)), cb, logger);
-      return false;
-    }
-    next = args.shift();
+  if (arguments.length == 3) {
+    callback = params;
+    params = null;
   }
 
   if (typeof path !== 'string') {
-    handleError(new Error('Invalid path passed to api(): ' + util.inspect(path)), cb, logger);
-    return false;
+    handleError(new Error('Invalid path passed to api(): ' + util.inspect(path)), callback, logger);
+    return;
   }
 
   method = method && method.toUpperCase() || 'GET';
@@ -97,20 +95,19 @@ Square.prototype.api = function() {
         return;
       }
 
-      cb(undefined, {
+      callback(undefined, {
         statusCode: res.statusCode,
         headers: res.headers,
         data: responseBody
       });
   });
 
-  return true;
 };
 
-function handleError(err, cb, logger) {
+function handleError(err, callback, logger) {
   logger.error(err);
-  if (cb) {
-    cb(err);
+  if (callback) {
+    callback(err);
   } else {
     throw err;
   }
